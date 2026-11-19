@@ -43,7 +43,7 @@ impl Router {
     {
         self.routes.push(Route {
             target: target.to_string(),
-            method: Method::map_method(method),
+            method: Method::to_method(method).unwrap(),
             handle: Arc::new(handle),
         });
     }
@@ -51,7 +51,7 @@ impl Router {
     /// Match the request againts a route.
     pub fn match_route(&self, request: &Request) -> Response {
         for route in &self.routes {
-            let req_target = request.start_line().target();
+            let req_target = request.request_line().target();
 
             if is_target_route(route, request) {
                 return check_possible_routes(&self.routes, req_target, request);
@@ -62,7 +62,7 @@ impl Router {
             }
         }
 
-        let mut response = Response::new();
+        let mut response = Response::default();
 
         response.set_status(StatusCode::NotFound);
         response.set_body(Some(b"Not Found"));
@@ -96,15 +96,15 @@ impl Router {
 ///
 /// Set `true` for the first case; Set `false` for the second case.
 fn is_route(route: &Route, request: &Request) -> bool {
-    let is_method = route.method == *request.start_line().method();
-    let is_target = route.target == request.start_line().target();
+    let is_method = route.method == request.request_line().method();
+    let is_target = route.target == request.request_line().target();
 
     is_method && is_target
 }
 
 fn is_target_route(route: &Route, request: &Request) -> bool {
-    let is_method = route.method == *request.start_line().method();
-    let is_target = route.target == request.start_line().target();
+    let is_method = route.method == request.request_line().method();
+    let is_target = route.target == request.request_line().target();
 
     is_target && !is_method 
 }
@@ -126,7 +126,7 @@ fn check_possible_routes(routes: &[Route], req_target: &str, request: &Request) 
         .map(|e| e.method)
         .collect::<Vec<Method>>();
 
-    let mut response = Response::new();
+    let mut response = Response::default();
 
     response.set_status(StatusCode::MethodNotAllowed(allowed_methods));
     response.set_body(Some(b"Method Not Allowed"));
