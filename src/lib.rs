@@ -50,21 +50,34 @@ impl Router {
 
     /// Match the request againts a route.
     pub fn match_route(&self, request: &Request) -> Response {
-        for route in &self.routes {
-            if is_target_route(route, request) {
-                return check_possible_routes(&self.routes, request);
-            }
+        let target = request.request_line().target();
+        let routes = self.routes.iter();
+        let routes: Vec<&Route> = routes.filter(|r| r.target == target).collect();
 
+        if routes.is_empty() {
+            let mut response = Response::default();
+            
+            response.set_status(StatusCode::NotFound);
+            response.set_body(Some(b"Not Found"));
+    
+            return response
+        }
+        
+        for route in &routes {
             if is_route(route, request) {
                 return (route.handle)(request);
             }
         }
 
-        let mut response = Response::default();
-
-        response.set_status(StatusCode::NotFound);
-        response.set_body(Some(b"Not Found"));
-
+        let methods: Vec<Method> = routes
+            .iter()
+            .map(|r| r.method)
+            .collect(); 
+        let mut response  = Response::default();
+    
+        response.set_status(StatusCode::MethodNotAllowed(methods));
+        response.set_body(Some(b"Method Not Allowed"));
+    
         response
     }
 
@@ -100,35 +113,58 @@ fn is_route(route: &Route, request: &Request) -> bool {
     is_method && is_target
 }
 
-fn is_target_route(route: &Route, request: &Request) -> bool {
-    let is_method = route.method == request.request_line().method();
-    let is_target = route.target == request.request_line().target();
+#[cfg(test)]
+mod router {
+    use super::*;
+    
+    use http_core::request::RequestLine;
+    
+    #[test]
+    fn router_match() {
+        let req_line = RequestLine::build(
+            http_core::request::HttpVersion::V1, 
+            Method::GET, 
+            "/test"
+        );
+        let request = Request::build(req_line, None, None);
+        let mut router = Router::new();
 
-    is_target && !is_method 
-}
+        router.get("/test", |_| Response::default());
 
-fn check_possible_routes(routes: &[Route], request: &Request) -> Response {
-    let target = request.request_line().target();
-    let possible_routes = routes
-        .iter()
-        .filter(|e| e.target == target)
-        .collect::<Vec<&Route>>();
-
-    for route in &possible_routes {
-        if is_route(route, request) {
-            return (route.handle)(request);
-        }
+        let res = router.match_route(&request);
+        assert_eq!(res.status().code(), "200");
     }
 
-    let allowed_methods = possible_routes
-        .iter()
-        .map(|e| e.method)
-        .collect::<Vec<Method>>();
+    #[test]
+    fn router_not_found() {
+        let req_line = RequestLine::build(
+            http_core::request::HttpVersion::V1, 
+            Method::GET, 
+            "/ops"
+        );
+        let request = Request::build(req_line, None, None);
+        let mut router = Router::new();
 
-    let mut response = Response::default();
+        router.get("/test", |_| Response::default());
 
-    response.set_status(StatusCode::MethodNotAllowed(allowed_methods));
-    response.set_body(Some(b"Method Not Allowed"));
+        let res = router.match_route(&request);
+        assert_eq!(res.status().code(), "404");
+    }
 
-    response
+    #[test]
+    fn router_with_multiples_methods_works() {
+        let req_line = RequestLine::build(
+            http_core::request::HttpVersion::V1, 
+            Method::HEAD, 
+            "/test"
+        );
+        let request = Request::build(req_line, None, None);
+        let mut router = Router::new();
+
+        router.get("/test", |_| Response::default());
+        router.head("/test", |_| Response::default());
+
+        let res = router.match_route(&request);
+        assert_eq!(res.status().code(), "200");
+    }
 }
