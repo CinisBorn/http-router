@@ -96,6 +96,27 @@ impl Router {
     {
         self.register_route(target, "HEAD", handle);
     }
+
+    pub fn post<T>(&mut self, target: &str, handle: T)
+    where
+        T: Fn(&Request) -> Response + 'static + Sync + Send,
+    {
+        self.register_route(target, "POST", handle);
+    }
+
+    pub fn delete<T>(&mut self, target: &str, handle: T)
+    where
+        T: Fn(&Request) -> Response + 'static + Sync + Send,
+    {
+        self.register_route(target, "DELETE", handle);
+    }
+
+    pub fn patch<T>(&mut self, target: &str, handle: T)
+    where
+        T: Fn(&Request) -> Response + 'static + Sync + Send,
+    {
+        self.register_route(target, "PATCH", handle);
+    }
 }
 
 /// Checks if the route match testing `route` against a `request`.
