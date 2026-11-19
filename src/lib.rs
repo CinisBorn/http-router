@@ -51,10 +51,8 @@ impl Router {
     /// Match the request againts a route.
     pub fn match_route(&self, request: &Request) -> Response {
         for route in &self.routes {
-            let req_target = request.request_line().target();
-
             if is_target_route(route, request) {
-                return check_possible_routes(&self.routes, req_target, request);
+                return check_possible_routes(&self.routes, request);
             }
 
             if is_route(route, request) {
@@ -109,10 +107,11 @@ fn is_target_route(route: &Route, request: &Request) -> bool {
     is_target && !is_method 
 }
 
-fn check_possible_routes(routes: &[Route], req_target: &str, request: &Request) -> Response {
+fn check_possible_routes(routes: &[Route], request: &Request) -> Response {
+    let target = request.request_line().target();
     let possible_routes = routes
         .iter()
-        .filter(|e| e.target == req_target)
+        .filter(|e| e.target == target)
         .collect::<Vec<&Route>>();
 
     for route in &possible_routes {
