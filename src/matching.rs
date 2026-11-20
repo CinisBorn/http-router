@@ -4,36 +4,25 @@
 //! module provide necessary "steps" for router matching.
 
 pub(crate) fn is_target(route_pattern: &str, target: &str) -> bool {
-    let mut pattern_segments = route_pattern
+    let pattern_segments = route_pattern
         .split("/")
-        .filter(|segmets| !segmets.is_empty())
-        .collect::<Vec<&str>>();
+        .filter(|segmets| !segmets.is_empty());
 
-    let mut segments = target        
+    let target_segments = target        
         .split("/")
-        .filter(|segmets| !segmets.is_empty())
-        .collect::<Vec<&str>>();
+        .filter(|segmets| !segmets.is_empty());
 
-    let has_same_length  = pattern_segments.len() == segments.len();
-    let has_same_content;
-    let mut idxs = Vec::new();
-
-    for (i, v) in pattern_segments.iter().enumerate() {
-        if v.starts_with(":") { idxs.push(i) }
+    let pattern_segments = pattern_segments.collect::<Vec<_>>();
+    let target_segments = target_segments.collect::<Vec<_>>();
+    
+    if pattern_segments.len() != target_segments.len() {
+        return false;
     }
     
-    for idx in idxs {
-        segments[idx] = "";
-        pattern_segments[idx] = "";
-    }
-
-    for (i, v) in pattern_segments.iter().enumerate() {
-        if segments[i] != *v {
-            unimplemented!()
-        }
-    }
-
-    has_same_content = true;
-
-    has_same_content && has_same_length
+    pattern_segments
+        .iter()
+        .zip(target_segments.iter())
+        .all(|(pattern, target)| {
+            pattern.starts_with(':') || pattern == target
+        })
 }
