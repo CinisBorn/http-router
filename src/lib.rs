@@ -4,7 +4,13 @@ use http_core::Method;
 use http_core::request::Request;
 use http_core::response::{Response, ResponseData, StatusCode};
 
+use std::collections::HashMap;
 use std::sync::Arc;
+
+use crate::path_parameter::path_parameters;
+
+mod path_parameter;
+mod matching;
 
 /// Represents a target route
 #[allow(missing_debug_implementations)]
@@ -14,7 +20,7 @@ pub struct Route {
     /// The HTTP method.
     pub method: Method,
     /// The handle
-    pub handle: Arc<dyn Fn(&Request) -> Response + Send + Sync + 'static>,
+    pub handle: Arc<dyn Fn(&Request, Option<HashMap<String, String>>) -> Response + Send + Sync + 'static>,
 }
 
 /// The Router
@@ -38,7 +44,7 @@ impl Router {
     /// Registers a new [`Route`] in the [`Router`].
     pub fn register_route<F>(&mut self, target: &str, method: &str, handle: F)
     where
-        F: Fn(&Request) -> Response + 'static,
+        F: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static,
         F: Send + Sync,
     {
         self.routes.push(Route {
@@ -52,7 +58,9 @@ impl Router {
     pub fn match_route(&self, request: &Request) -> Response {
         let target = request.request_line().target();
         let routes = self.routes.iter();
-        let routes: Vec<&Route> = routes.filter(|r| r.target == target).collect();
+        let routes: Vec<&Route> = routes.filter(|r|  {
+            matching::is_target(&r.target, target)
+        }).collect();
 
         if routes.is_empty() {
             let mut response = Response::default();
@@ -64,8 +72,10 @@ impl Router {
         }
         
         for route in &routes {
+            let params = path_parameters(&route.target, target);
+
             if is_route(route, request) {
-                return (route.handle)(request);
+                return (route.handle)(request, params);
             }
         }
 
@@ -84,7 +94,7 @@ impl Router {
     /// Registers a new `GET` endpoint to the routing.
     pub fn get<T>(&mut self, uri: &str, handle: T)
     where
-        T: Fn(&Request) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
     {
         self.register_route(uri, "GET", handle);
     }
@@ -92,28 +102,28 @@ impl Router {
     /// Register a new `HEAD` endpoint to the router.
     pub fn head<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "HEAD", handle);
     }
 
     pub fn post<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "POST", handle);
     }
 
     pub fn delete<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "DELETE", handle);
     }
 
     pub fn patch<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "PATCH", handle);
     }
@@ -129,8 +139,13 @@ impl Router {
 /// Set `true` for the first case; Set `false` for the second case.
 fn is_route(route: &Route, request: &Request) -> bool {
     let is_method = route.method == request.request_line().method();
-    let is_target = route.target == request.request_line().target();
+    let is_target = matching::is_target(
+        &route.target, 
+        request.request_line().target()
+    );
 
+    println!("IS TARGET? {}", is_target);
+    
     is_method && is_target
 }
 
@@ -150,7 +165,7 @@ mod router {
         let request = Request::build(req_line, None, None);
         let mut router = Router::new();
 
-        router.get("/test", |_| Response::default());
+        router.get("/test", |_, _| Response::default());
 
         let res = router.match_route(&request);
         assert_eq!(res.status().code(), "200");
@@ -166,7 +181,7 @@ mod router {
         let request = Request::build(req_line, None, None);
         let mut router = Router::new();
 
-        router.get("/test", |_| Response::default());
+        router.get("/test", |_, _| Response::default());
 
         let res = router.match_route(&request);
         assert_eq!(res.status().code(), "404");
@@ -182,8 +197,30 @@ mod router {
         let request = Request::build(req_line, None, None);
         let mut router = Router::new();
 
-        router.get("/test", |_| Response::default());
-        router.head("/test", |_| Response::default());
+        router.get("/test", |_, _| Response::default());
+        router.head("/test", |_,_| Response::default());
+
+        let res = router.match_route(&request);
+        assert_eq!(res.status().code(), "200");
+    }
+
+    #[test]
+    fn params_match() {
+        let req_line = RequestLine::build(
+            http_core::request::HttpVersion::V1, 
+            Method::GET, 
+            "/test/50"
+        );
+        
+        let request = Request::build(req_line, None, None);
+        let mut router = Router::new();
+
+        router.get("/test/:id", |_, params| {
+            let params = params.unwrap();
+            assert_eq!(params.get("id").unwrap(), "50");
+            
+            Response::default()
+        });
 
         let res = router.match_route(&request);
         assert_eq!(res.status().code(), "200");
