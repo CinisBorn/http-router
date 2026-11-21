@@ -57,12 +57,12 @@ impl Router {
     /// Match the request againts a route.
     pub fn match_route(&self, request: &Request) -> Response {
         let target = request.request_line().target();
-        let routes = self.routes.iter();
-        let routes: Vec<&Route> = routes.filter(|r|  {
-            matching::is_target(&r.target, target)
-        }).collect();
+        let matched_routes = self.routes
+            .iter()
+            .filter(|r| matching::is_target(&r.target, target))
+            .collect::<Vec<&Route>>();
 
-        if routes.is_empty() {
+        if matched_routes.is_empty() {
             let mut response = Response::default();
             
             response.set_status(StatusCode::NotFound);
@@ -71,7 +71,7 @@ impl Router {
             return response
         }
         
-        for route in &routes {
+        for route in &matched_routes {
             let params = path_parameters(&route.target, target);
 
             if is_route(route, request) {
@@ -79,7 +79,7 @@ impl Router {
             }
         }
 
-        let methods: Vec<Method> = routes
+        let methods: Vec<Method> = matched_routes
             .iter()
             .map(|r| r.method)
             .collect(); 
