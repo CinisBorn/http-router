@@ -7,44 +7,32 @@ use std::{collections::HashMap};
 /// 
 /// The `key` of values are the parameter placeholder without
 /// the colon(`:`)
+/// 
+/// If there is not any parameter, an empty `HashMap` 
+/// is returned.
 pub(crate) fn path_parameters(
-    route_pattern: &str, 
-    target: &str
-) -> Option<HashMap<String, String>> {
+    route_pattern: &str,
+    target: &str,
+) -> HashMap<String, String> {
     let pattern_segments = route_pattern
-        .split("/")
-        .filter(|segmets| !segmets.is_empty())
-        .collect::<Vec<&str>>();
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
 
-    let segments = target        
-        .split("/")
-        .filter(|segmets| !segmets.is_empty())
-        .collect::<Vec<&str>>();
+    let segments = target
+        .split('/')
+        .filter(|segment| !segment.is_empty())
+        .collect::<Vec<_>>();
 
-    let keys = pattern_segments.iter()
-        .filter(|segment| segment.starts_with(":"))
-        .map(|parameters| &parameters[1..])
-        .map(|parameters| parameters.to_string())
-        .collect::<Vec<String>>();
+    let mut parameters = HashMap::new();
 
-    if keys.is_empty() {
-        return None
-    }
-    
-    let values = pattern_segments
-        .iter()
-        .enumerate()
-        .filter_map(|(idx, chunk)| if chunk.starts_with(":") { Some(idx) } else { None })
-        .map(|idx| segments[idx].to_string())
-        .collect::<Vec<String>>();
-
-    let mut parameters: HashMap<String, String> = HashMap::new();
-
-    for (idx, key) in keys.into_iter().enumerate() {
-        parameters.insert(key, values[idx].to_owned());
+    for (pattern, value) in pattern_segments.iter().zip(segments.iter()) {
+        if let Some(key) = pattern.strip_prefix(':') {
+            parameters.insert(key.to_string(), value.to_string());
+        }
     }
 
-    Some(parameters)
+    parameters
 }
 
 #[cfg(test)]
@@ -56,7 +44,7 @@ mod matching {
         let parameters = path_parameters(
             "/test/:id/:name", 
             "/test/5/jhon"
-        ).unwrap();
+        );
 
         assert_eq!(parameters.get("id").unwrap(), "5");
         assert_eq!(parameters.get("name").unwrap(), "jhon")
@@ -65,6 +53,6 @@ mod matching {
     #[test]
     fn no_parameter_placeholder_returns_none() {
         let parameters = path_parameters("/test", "/test");
-        assert!(parameters.is_none())
+        assert!(parameters.is_empty())
     }
 }

@@ -20,7 +20,7 @@ pub struct Route {
     /// The HTTP method.
     pub method: Method,
     /// The handle
-    pub handle: Arc<dyn Fn(&Request, Option<HashMap<String, String>>) -> Response + Send + Sync + 'static>,
+    pub handle: Arc<dyn Fn(&Request, HashMap<String, String>) -> Response + Send + Sync + 'static>,
 }
 
 /// The Router
@@ -44,7 +44,7 @@ impl Router {
     /// Registers a new [`Route`] in the [`Router`].
     pub fn register_route<F>(&mut self, target: &str, method: &str, handle: F)
     where
-        F: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static,
+        F: Fn(&Request, HashMap<String, String>) -> Response + 'static,
         F: Send + Sync,
     {
         self.routes.push(Route {
@@ -94,7 +94,7 @@ impl Router {
     /// Registers a new `GET` endpoint to the routing.
     pub fn get<T>(&mut self, uri: &str, handle: T)
     where
-        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, HashMap<String, String>) -> Response + 'static + Sync + Send,
     {
         self.register_route(uri, "GET", handle);
     }
@@ -102,28 +102,28 @@ impl Router {
     /// Register a new `HEAD` endpoint to the router.
     pub fn head<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, HashMap<String, String>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "HEAD", handle);
     }
 
     pub fn post<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, HashMap<String, String>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "POST", handle);
     }
 
     pub fn delete<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, HashMap<String, String>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "DELETE", handle);
     }
 
     pub fn patch<T>(&mut self, target: &str, handle: T)
     where
-        T: Fn(&Request, Option<HashMap<String, String>>) -> Response + 'static + Sync + Send,
+        T: Fn(&Request, HashMap<String, String>) -> Response + 'static + Sync + Send,
     {
         self.register_route(target, "PATCH", handle);
     }
@@ -144,8 +144,6 @@ fn is_route(route: &Route, request: &Request) -> bool {
         request.request_line().target()
     );
 
-    println!("IS TARGET? {}", is_target);
-    
     is_method && is_target
 }
 
@@ -216,7 +214,7 @@ mod router {
         let mut router = Router::new();
 
         router.get("/test/:id", |_, params| {
-            let params = params.unwrap();
+            let params = params;
             assert_eq!(params.get("id").unwrap(), "50");
             
             Response::default()
