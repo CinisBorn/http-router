@@ -74,7 +74,7 @@ impl Router {
         for route in &matched_routes {
             let params = path_parameters(&route.target, target);
 
-            if is_route(route, request) {
+            if route.method == request.request_line().method() {
                 return (route.handle)(request, params);
             }
         }
@@ -127,18 +127,6 @@ impl Router {
     {
         self.register_route(target, "PATCH", handle);
     }
-}
-
-/// Checks if the route match testing `route` against a `request`.
-///
-/// The `switch` parameter is used for flow control where I can test:
-///
-/// - If both route and method match
-/// - If route match, but the method not
-///
-/// Set `true` for the first case; Set `false` for the second case.
-fn is_route(route: &Route, request: &Request) -> bool {
-    route.method == request.request_line().method()
 }
 
 #[cfg(test)]
