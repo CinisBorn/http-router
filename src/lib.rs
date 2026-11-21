@@ -42,7 +42,7 @@ impl Router {
     }
 
     /// Registers a new [`Route`] in the [`Router`].
-    pub fn register_route<F>(&mut self, target: &str, method: &str, handle: F)
+    fn register_route<F>(&mut self, target: &str, method: &str, handle: F)
     where
         F: Fn(&Request, HashMap<String, String>) -> Response + 'static,
         F: Send + Sync,
