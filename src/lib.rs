@@ -138,9 +138,7 @@ impl Router {
 ///
 /// Set `true` for the first case; Set `false` for the second case.
 fn is_route(route: &Route, request: &Request) -> bool {
-    let is_method = route.method == request.request_line().method();
-
-    is_method
+    route.method == request.request_line().method()
 }
 
 #[cfg(test)]
